@@ -1,0 +1,28 @@
+# Cloud Build lee este archivo desde git y despliega la función.
+# En la consola: Triggers → Cloud Build configuration file → /cloudbuild.yaml
+substitutions:
+  _FUNCTION_NAME: publishIndicators
+  _REGION: southamerica-east1
+  _RUNTIME: nodejs22
+  _MEMORY: 512MB
+  _TIMEOUT: 120s
+
+steps:
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    args:
+      - gcloud
+      - functions
+      - deploy
+      - ${_FUNCTION_NAME}
+      - --gen2
+      - --region=${_REGION}
+      - --runtime=${_RUNTIME}
+      - --source=.
+      - --entry-point=publishIndicators
+      - --trigger-http
+      - --no-allow-unauthenticated
+      - --memory=${_MEMORY}
+      - --timeout=${_TIMEOUT}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
