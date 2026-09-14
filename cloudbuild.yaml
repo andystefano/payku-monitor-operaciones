@@ -20,7 +20,7 @@ steps:
       - --source=.
       - --entry-point=publishIndicators
       - --trigger-http
-      - --no-allow-unauthenticated
+      - --allow-unauthenticated
       - --memory=${_MEMORY}
       - --timeout=${_TIMEOUT}
 

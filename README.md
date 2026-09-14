@@ -5,43 +5,15 @@ Cloud Function HTTP (2ª generación) que consulta indicadores operacionales en 
 - **Función:** `publishIndicators`
 - **Región:** `us-central1`
 - **Trigger:** HTTP (`POST` publica; `GET` solo responde `ready`)
-- **Auth:** no admite llamadas anónimas (`--no-allow-unauthenticated`)
+- **Auth:** pública (`--allow-unauthenticated`)
 
 La consulta usa una ventana de 5 minutos en hora de Santiago (`now - 6 min` → `now - 1 min`). El scheduler debe disparar **cada 5 minutos**.
 
 ## Invocar con Cloud Scheduler
 
-Cloud Scheduler debe pegarle un `POST` a la URL de la función, con un token OIDC de una cuenta de servicio que tenga permiso de invocador.
+Cloud Scheduler debe pegarle un `POST` a la URL de la función. No hace falta token: la función admite llamadas anónimas.
 
-### 1. Cuenta de servicio
-
-```bash
-PROJECT_ID="$(gcloud config get-value project)"
-
-gcloud iam service-accounts create scheduler-monitor-ops \
-  --display-name="Cloud Scheduler - Monitor Operaciones"
-```
-
-En 2ª generación la función corre sobre Cloud Run. Otorgá `roles/run.invoker`:
-
-```bash
-gcloud functions add-invoker-policy-binding publishIndicators \
-  --region=us-central1 \
-  --member="serviceAccount:scheduler-monitor-ops@${PROJECT_ID}.iam.gserviceaccount.com"
-```
-
-El agente de Cloud Scheduler necesita poder mintar el token OIDC:
-
-```bash
-PROJECT_NUMBER="$(gcloud projects describe ${PROJECT_ID} --format='value(projectNumber)')"
-
-gcloud iam service-accounts add-iam-policy-binding \
-  "scheduler-monitor-ops@${PROJECT_ID}.iam.gserviceaccount.com" \
-  --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-cloudscheduler.iam.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountTokenCreator"
-```
-
-### 2. URL de la función
+### 1. URL de la función
 
 ```bash
 FUNCTION_URL="$(gcloud functions describe publishIndicators \
@@ -50,9 +22,11 @@ FUNCTION_URL="$(gcloud functions describe publishIndicators \
   --format='value(serviceConfig.uri)')"
 ```
 
-Esa URL es la del servicio Cloud Run (por ejemplo `https://publishindicators-xxxxx-rj.a.run.app`). Usala tanto en `--uri` como en `--oidc-token-audience`.
+También sirve la URL de Cloud Functions:
 
-### 3. Crear el job
+`https://us-central1-PROJECT_ID.cloudfunctions.net/publishIndicators`
+
+### 2. Crear el job
 
 ```bash
 gcloud scheduler jobs create http publish-indicators \
@@ -61,13 +35,11 @@ gcloud scheduler jobs create http publish-indicators \
   --time-zone="America/Santiago" \
   --uri="${FUNCTION_URL}" \
   --http-method=POST \
-  --oidc-service-account-email="scheduler-monitor-ops@${PROJECT_ID}.iam.gserviceaccount.com" \
-  --oidc-token-audience="${FUNCTION_URL}" \
   --attempt-deadline=120s \
   --description="Publica SLI de payout en Cloud Monitoring"
 ```
 
-No hace falta body ni headers extra: un `POST` vacío alcanza.
+No hace falta body, headers ni OIDC: un `POST` vacío alcanza.
 
 | Campo | Valor |
 | --- | --- |
@@ -75,9 +47,9 @@ No hace falta body ni headers extra: un `POST` vacío alcanza.
 | Frecuencia | `*/5 * * * *` |
 | Zona horaria | `America/Santiago` |
 | Deadline | `120s` (igual al timeout de la función) |
-| Auth | OIDC, audience = URL de la función |
+| Auth | ninguna |
 
-### 4. Probar el job
+### 3. Probar el job
 
 ```bash
 gcloud scheduler jobs run publish-indicators --location=us-central1
@@ -99,13 +71,11 @@ gcloud scheduler jobs describe publish-indicators --location=us-central1
 4. Destino: **HTTP**
    - URL: URI de `publishIndicators`
    - Método: `POST`
-5. Auth: **Agregar token OIDC**
-   - Cuenta de servicio: `scheduler-monitor-ops@PROJECT_ID.iam.gserviceaccount.com`
-   - Audience: la misma URL de la función
+5. Auth: **ninguna**
 6. Crear y ejecutar una vez a mano para validar
 
 ## Errores frecuentes
 
-- **401 / 403:** falta `roles/run.invoker` o el audience no coincide con la URL de Cloud Run.
+- **403:** el deploy todavía tiene `--no-allow-unauthenticated`. Hay que redesplegar con este yaml o dar `allUsers` como invocador.
 - **405:** el job está mandando `GET` u otro método. Tiene que ser `POST`.
 - **Timeout:** el deadline del job debe ser ≥ timeout de la función (`120s`).
