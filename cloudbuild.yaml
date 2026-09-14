@@ -1,11 +1,17 @@
 # Cloud Build lee este archivo desde git y despliega la función.
 # En la consola: Triggers → Cloud Build configuration file → /cloudbuild.yaml
+# Las variables _DB_* y _CLOUD_SQL_* se pisan con las substitutions del trigger.
 substitutions:
   _FUNCTION_NAME: publishIndicators
   _REGION: us-central1
   _RUNTIME: nodejs22
   _MEMORY: 512MB
   _TIMEOUT: 120s
+  _DB_NAME: payku_dev
+  _DB_USER: payku_dev
+  _DB_DIALECT: mysql
+  _DB_PASSWORD: ''
+  _CLOUD_SQL_CONNECTION_NAME: ''
 
 steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -23,6 +29,8 @@ steps:
       - --allow-unauthenticated
       - --memory=${_MEMORY}
       - --timeout=${_TIMEOUT}
+      - --add-cloudsql-instances=${_CLOUD_SQL_CONNECTION_NAME}
+      - --set-env-vars=^|^DB_NAME=${_DB_NAME}|DB_USER=${_DB_USER}|DB_DIALECT=${_DB_DIALECT}|DB_PASSWORD=${_DB_PASSWORD}|CLOUD_SQL_CONNECTION_NAME=${_CLOUD_SQL_CONNECTION_NAME}|GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
 
 options:
   logging: CLOUD_LOGGING_ONLY
