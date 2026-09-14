@@ -3,7 +3,7 @@
 Cloud Function HTTP (2ª generación) que consulta indicadores operacionales en MySQL y los publica en Cloud Monitoring.
 
 - **Función:** `publishIndicators`
-- **Región:** `southamerica-east1`
+- **Región:** `us-central1`
 - **Trigger:** HTTP (`POST` publica; `GET` solo responde `ready`)
 - **Auth:** no admite llamadas anónimas (`--no-allow-unauthenticated`)
 
@@ -26,7 +26,7 @@ En 2ª generación la función corre sobre Cloud Run. Otorgá `roles/run.invoker
 
 ```bash
 gcloud functions add-invoker-policy-binding publishIndicators \
-  --region=southamerica-east1 \
+  --region=us-central1 \
   --member="serviceAccount:scheduler-monitor-ops@${PROJECT_ID}.iam.gserviceaccount.com"
 ```
 
@@ -46,7 +46,7 @@ gcloud iam service-accounts add-iam-policy-binding \
 ```bash
 FUNCTION_URL="$(gcloud functions describe publishIndicators \
   --gen2 \
-  --region=southamerica-east1 \
+  --region=us-central1 \
   --format='value(serviceConfig.uri)')"
 ```
 
@@ -56,7 +56,7 @@ Esa URL es la del servicio Cloud Run (por ejemplo `https://publishindicators-xxx
 
 ```bash
 gcloud scheduler jobs create http publish-indicators \
-  --location=southamerica-east1 \
+  --location=us-central1 \
   --schedule="*/5 * * * *" \
   --time-zone="America/Santiago" \
   --uri="${FUNCTION_URL}" \
@@ -80,7 +80,7 @@ No hace falta body ni headers extra: un `POST` vacío alcanza.
 ### 4. Probar el job
 
 ```bash
-gcloud scheduler jobs run publish-indicators --location=southamerica-east1
+gcloud scheduler jobs run publish-indicators --location=us-central1
 ```
 
 Una ejecución correcta responde `200` con `{ "message": "Indicadores publicados", "count": N, "indicators": [...] }`. Si no hubo tráfico en la ventana, `count` puede ser `0` y no se publica métrica.
@@ -88,13 +88,13 @@ Una ejecución correcta responde `200` con `{ "message": "Indicadores publicados
 Para ver el job:
 
 ```bash
-gcloud scheduler jobs describe publish-indicators --location=southamerica-east1
+gcloud scheduler jobs describe publish-indicators --location=us-central1
 ```
 
 ## Consola de GCP
 
 1. **Cloud Scheduler** → **Crear job**
-2. Región: `southamerica-east1`
+2. Región: `us-central1`
 3. Frecuencia: `*/5 * * * *`, zona `America/Santiago`
 4. Destino: **HTTP**
    - URL: URI de `publishIndicators`

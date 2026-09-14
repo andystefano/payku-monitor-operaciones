@@ -2,7 +2,7 @@
 # En la consola: Triggers → Cloud Build configuration file → /cloudbuild.yaml
 substitutions:
   _FUNCTION_NAME: publishIndicators
-  _REGION: southamerica-east1
+  _REGION: us-central1
   _RUNTIME: nodejs22
   _MEMORY: 512MB
   _TIMEOUT: 120s
