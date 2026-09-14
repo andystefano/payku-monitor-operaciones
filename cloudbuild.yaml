@@ -15,6 +15,7 @@ substitutions:
 
 steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
     args:
       - gcloud
       - functions
@@ -29,8 +30,28 @@ steps:
       - --allow-unauthenticated
       - --memory=${_MEMORY}
       - --timeout=${_TIMEOUT}
-      - --add-cloudsql-instances=${_CLOUD_SQL_CONNECTION_NAME}
       - --set-env-vars=^|^DB_NAME=${_DB_NAME}|DB_USER=${_DB_USER}|DB_DIALECT=${_DB_DIALECT}|DB_PASSWORD=${_DB_PASSWORD}|CLOUD_SQL_CONNECTION_NAME=${_CLOUD_SQL_CONNECTION_NAME}|GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
+
+  # gcloud functions deploy --gen2 no acepta --add-cloudsql-instances.
+  # El socket Unix /cloudsql/... se habilita en el servicio Cloud Run subyacente.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: attach-cloudsql
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ -z "${_CLOUD_SQL_CONNECTION_NAME}" ]; then
+          echo "Skipping Cloud SQL attach: _CLOUD_SQL_CONNECTION_NAME is empty"
+          exit 0
+        fi
+        SERVICE_NAME=$$(gcloud functions describe ${_FUNCTION_NAME} \
+          --gen2 \
+          --region=${_REGION} \
+          --format='value(serviceConfig.service)' | awk -F/ '{print $$NF}')
+        gcloud run services update "$$SERVICE_NAME" \
+          --region=${_REGION} \
+          --add-cloudsql-instances=${_CLOUD_SQL_CONNECTION_NAME}
 
 options:
   logging: CLOUD_LOGGING_ONLY
